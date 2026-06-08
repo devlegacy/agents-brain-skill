@@ -1,6 +1,6 @@
 ---
-description: Operates the {{PROJECT_NAME}} wiki. Default (no args): ingest. Subcommands: ingest, query <question>, lint, restore, fix.
-argument-hint: "ingest (default) | query <question> | lint | restore | fix"
+description: Operates the {{PROJECT_NAME}} wiki. Default (no args): ingest. Subcommands: ingest, query <question>, lint, plan <slug>, restore, fix.
+argument-hint: "ingest (default) | query <question> | lint | plan <slug> | restore | fix"
 ---
 
 You are the wiki operator of {{PROJECT_NAME}}. The wiki is a live markdown knowledge base
@@ -16,6 +16,8 @@ Parse `$ARGUMENTS`:
 - Starts with `query` followed by a non-empty string → **QUERY** mode with the rest as the question.
 - Equals exactly `query` (no question) → ask "What do you want to query the wiki about?" and abort until the user provides a question.
 - `lint` → **LINT** mode.
+- Starts with `plan` followed by a non-empty slug → **PLAN** mode with the rest as the slug.
+- Equals exactly `plan` (no slug) → respond "Provide a slug for the plan (e.g., `/{{COMMAND_NAME}} plan frontend-architecture`)." and abort.
 - Anything else → ask the user for clarification and abort.
 
 ---
@@ -56,6 +58,18 @@ what happened in THIS conversation.
    ```
 10. Report to the user: path of the created/updated node, cross-refs added, and if
     there was any ambiguous decision.
+11. **Planning update**: scan the conversation for mentions of planning nodes (by slug or title).
+    For each planning node found in `{{WIKI_DIR}}/plannings/`:
+    a. Read the planning node.
+    b. Check off tasks that were explicitly completed in this conversation.
+    c. Append the session slug to `updated_by` in the frontmatter.
+    d. Recompute `progress` from the ratio of checked vs total tasks and update the frontmatter.
+    e. Append a new block to `## Progress`: date, one-line summary, completed/remaining tasks, `[[session-slug]]`.
+    f. Add `[[session-slug]] — advanced this plan` to the planning's `## Cross-refs`.
+    g. Add `[[planning-slug]] — advanced this plan` to the session's `## {{SECTION_CROSS_REFS}}`.
+    h. Append to `{{WIKI_DIR}}/LOG.md`: `## [YYYY-MM-DD HH:MM] update | <planning-slug>`
+    If `created_by` in the planning is null, set it to this session's slug.
+    If no planning node is referenced in the conversation, skip this step silently.
 
 {{LEGACY_INGEST_NOTE}}
 
@@ -83,11 +97,47 @@ Objective: answer a question using the wiki as a base, with verifiable citations
 
 ---
 
+## PLAN mode
+
+Objective: create a new planning node or update an existing one in `{{WIKI_DIR}}/plannings/`.
+
+**If the planning node already exists** (`{{WIKI_DIR}}/plannings/<slug>.md`):
+1. Read `{{WIKI_DIR}}/CLAUDE.md` and the planning node in full.
+2. Show the user a summary: title, status, progress %, open tasks count, last session in `updated_by`.
+3. Ask: "What do you want to update? (tasks / objective / context / status / decisions / other)"
+4. Apply the changes in-place. For task updates, use `- [x]` / `- [ ]` syntax. For status, use the valid enum.
+5. Recompute `progress` if tasks changed.
+6. Append to `{{WIKI_DIR}}/LOG.md`:
+   ```
+   ## [YYYY-MM-DD HH:MM] update | <slug>
+   - Changed: <what was updated>
+   ```
+
+**If the planning node does NOT exist** → CREATE:
+1. Read `{{WIKI_DIR}}/CLAUDE.md` and `{{WIKI_DIR}}/INDEX.md`.
+2. Ask the user (can ask all at once):
+   - "What is the objective of this plan?"
+   - "Which area does it belong to? ({{AREA_ENUM}})"
+   - "List the initial tasks — you can refine them later."
+3. Generate the planning node at `{{WIKI_DIR}}/plannings/<slug>.md` with:
+   - `status: draft`, `progress: 0`, `created_by: null`, `updated_by: []`
+4. Write the full body: populate `## Objective`, `## Context`, and `## Tasks` from the answers. Leave `## Progress` and `## Decisions` with *(none yet)*.
+5. Update `{{WIKI_DIR}}/INDEX.md`: add `[[slug]] — one-liner` under `## Plannings > <area>`. Create the area section if it does not exist.
+6. Append to `{{WIKI_DIR}}/LOG.md`:
+   ```
+   ## [YYYY-MM-DD HH:MM] plan | <slug>
+   - Area: <area>
+   - Tasks: <count> initial tasks
+   ```
+7. Report to the user: path created, remind to run `ingest` at end of sessions that advance this plan.
+
+---
+
 ## LINT mode
 
 Objective: report the health status of the wiki **WITHOUT modifying files**.
 
-1. Read `{{WIKI_DIR}}/CLAUDE.md`, `{{WIKI_DIR}}/INDEX.md`, and **all** files in `{{WIKI_DIR}}/sessions/`.
+1. Read `{{WIKI_DIR}}/CLAUDE.md`, `{{WIKI_DIR}}/INDEX.md`, all files in `{{WIKI_DIR}}/sessions/`, and all files in `{{WIKI_DIR}}/plannings/`.
 2. Check each category according to the lint rules in `{{WIKI_DIR}}/CLAUDE.md`.
 3. Return a structured markdown report:
 

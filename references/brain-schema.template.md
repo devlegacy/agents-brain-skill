@@ -12,20 +12,24 @@ by the `/{{COMMAND_NAME}}` command. Follow these rules precisely.
 - `LOG.md` — append-only log of **operations on the wiki** (ingest, lint, rename, merge). This is not the work log — that lives in the nodes.
 - `SOURCES.md` — external sources registry. A directory, not a content cache.
 - `sessions/` — session nodes. Flat, one file per session.
+- `plannings/` — planning nodes. Living documents that span multiple sessions.
 - `CLAUDE.md` — this file.
 
 ---
 
 ## Node types
 
-At startup, only **session** exists. Concepts, ADRs, entities, and persons will emerge
-organically via `lint` when a pattern repeats in 3+ nodes.
+Two explicit types exist from the start:
 
-**DO NOT** create nodes of other types preemptively.
+**`session`** — point-in-time log of a conversation. Append-only after creation. Created automatically by `/{{COMMAND_NAME}} ingest`.
+
+**`planning`** — living specification document that spans multiple sessions. Tracks tasks, progress, and the sessions that created and advanced it. Created explicitly via `/{{COMMAND_NAME}} plan <slug>`. Updated in-place as tasks are completed across sessions.
+
+Concepts, ADRs, entities, and persons emerge organically via `lint` when a pattern repeats in 3+ nodes. **DO NOT** create those types preemptively.
 
 ---
 
-## Required frontmatter in each node
+## Required frontmatter — session nodes
 
 ```yaml
 ---
@@ -52,16 +56,45 @@ Rules:
 
 ---
 
+## Required frontmatter — planning nodes
+
+```yaml
+---
+type: planning
+area: <{{AREA_ENUM}}>
+slug: <kebab-case>              # NO date prefix — plannings are living docs, not dated events
+title: "<human-readable title>"
+tags: [<free, kebab-case>]
+status: draft | active | in-progress | completed | cancelled
+progress: 0                     # integer 0–100, updated as tasks are completed
+created_by: <session-slug>      # slug of the session that created this plan
+updated_by:                     # ordered list of session slugs that advanced this plan
+  - <session-slug>
+related:                        # related planning nodes (not sessions — those go in updated_by)
+  - <planning-slug>
+superseded_by: null
+---
+```
+
+Rules:
+- `slug`: kebab-case, no date prefix. Must be globally unique across all nodes. ≤6 words. Describes what is being planned, not when.
+- `progress`: updated by ingest when session tasks advance this plan. Never set manually to 100 — use `status: completed` instead.
+- `created_by`: set by ingest on the session that first mentions creating this plan. May be null until the first ingest after plan creation.
+- `updated_by`: append-only. Ingest appends the session slug each time tasks are completed. Never remove entries.
+
+---
+
 ## Link convention — Foam Wikilinks
 
 **Critical rule**: all internal wiki links use `[[slug]]`, compatible with Foam/Markdown Notes in VSCode.
 
-- **Syntax**: `[[slug]]` — only the filename without `.md`, without path, without alias. E.g.: `[[2026-04-05-node-name]]`.
-- **Resolution**: Foam resolves the slug to the file by name. Slugs are unique by construction (they include a date).
+- **Syntax**: `[[slug]]` — only the filename without `.md`, without path, without alias. E.g.: `[[2026-04-05-node-name]]` for sessions, `[[frontend-architecture]]` for plannings.
+- **Resolution**: Foam resolves the slug to the file by name. Session slugs are unique by date prefix. Planning slugs are unique by name convention.
 - **Where they are used**:
   - `INDEX.md`: each catalog entry
   - Nodes: `## {{SECTION_CROSS_REFS}}` section
   - Nodes: `## {{SECTION_SOURCES}}` section when pointing to another wiki node or internal anchor (`[[sources#id]]`)
+  - Planning nodes: `created_by` and `updated_by` fields reference session slugs (but written as plain slugs in frontmatter, not wikilinks)
 - **Where they are NOT used**:
   - External URLs: use markdown link `[text](url)`
   - Files outside the vault `{{WIKI_DIR}}/`: literal backticks
@@ -69,7 +102,7 @@ Rules:
 
 ---
 
-## Required body of each session node
+## Required body — session nodes
 
 Sections in this exact order:
 
@@ -98,6 +131,48 @@ Body rules:
 
 ---
 
+## Required body — planning nodes
+
+Sections in this exact order:
+
+```
+# <title from frontmatter>
+
+## Objective
+What this plan achieves and why it exists.
+
+## Context
+Background, constraints, dependencies, and architectural decisions already in place.
+
+## Tasks
+- [ ] Task 1
+  - [ ] Subtask 1.1
+- [x] Completed task
+
+## Decisions
+Key choices made during planning and execution.
+Link to the session where each decision was made: [[session-slug]] — decision summary.
+
+## Progress
+### [YYYY-MM-DD] <one-line summary of session advance>
+- Completed: <tasks done>
+- Remaining: <tasks left>
+- Updated by: [[session-slug]]
+
+## Cross-refs
+- [[session-slug]] — created this plan
+- [[session-slug]] — completed task X
+- [[related-planning-slug]] — depends on / blocks this plan
+```
+
+Body rules:
+- `## Tasks`: the only mutable section updated across sessions. Use `- [x]` for completed, `- [ ]` for pending. Indent subtasks with 2 spaces.
+- `## Progress`: append-only. Each session that advances this plan adds one block. Do NOT rewrite previous blocks.
+- `## Decisions`: append decisions as they are made. Link each to the session where it was decided.
+- `## Cross-refs`: link sessions that created or advanced this plan. Link related planning nodes with a reason.
+
+---
+
 ## Ingest rules
 
 When `/{{COMMAND_NAME}} ingest` is invoked:
@@ -119,6 +194,17 @@ When `/{{COMMAND_NAME}} ingest` is invoked:
 8. Update `{{WIKI_DIR}}/INDEX.md`: insert the bullet `[[slug]] — one-liner` at the top of the area section. If the area does not exist, create it in alphabetical order.
 9. Append to `{{WIKI_DIR}}/LOG.md`: `## [YYYY-MM-DD HH:MM] ingest | <slug>` with cross-ref metadata.
 10. Report to the user: node path, cross-refs added, ambiguous decisions.
+11. **Planning update**: scan the conversation for mentions of planning nodes (by slug or title).
+    For each planning node referenced:
+    a. Read the planning node from `{{WIKI_DIR}}/plannings/`.
+    b. Check off any tasks that were explicitly completed in this conversation.
+    c. Append the new session slug to `updated_by` in the frontmatter.
+    d. Estimate `progress` from the ratio of checked tasks and update the frontmatter field.
+    e. Append a new block to `## Progress`: date, one-line summary, completed tasks, remaining tasks, session wikilink.
+    f. Add `[[this-session-slug]] — advanced this plan` to the planning's `## Cross-refs`.
+    g. Add `[[planning-slug]] — advanced this plan` to the session's `## {{SECTION_CROSS_REFS}}`.
+    h. Append to `{{WIKI_DIR}}/LOG.md`: `## [YYYY-MM-DD HH:MM] update | <planning-slug>`
+    If no planning is referenced, skip this step silently.
 
 {{LEGACY_NOTE}}
 
@@ -142,10 +228,12 @@ When `/{{COMMAND_NAME}} query <question>` is invoked:
 
 When `/{{COMMAND_NAME}} lint` is invoked:
 
-1. Read `{{WIKI_DIR}}/CLAUDE.md`, `{{WIKI_DIR}}/INDEX.md`, and **all** files in `{{WIKI_DIR}}/sessions/`.
+1. Read `{{WIKI_DIR}}/CLAUDE.md`, `{{WIKI_DIR}}/INDEX.md`, all files in `{{WIKI_DIR}}/sessions/`, and all files in `{{WIKI_DIR}}/plannings/`.
 2. Check these categories:
-   - **Orphan nodes**: nodes with no inbound wikilinks from other nodes or from `INDEX.md`.
-   - **Broken wikilinks**: `[[slug]]` that does not resolve to any file in `sessions/`.
+
+   **Sessions:**
+   - **Orphan nodes**: session nodes with no inbound wikilinks from other nodes or from `INDEX.md`.
+   - **Broken wikilinks**: `[[slug]]` that does not resolve to any file in `sessions/` or `plannings/`.
    - **Stale claims**: pending item dates that have already passed.
    - **Missing cross-refs**: pairs with high tag overlap or the same entity without a wikilink between them.
    - **Emerging concepts**: terms that appear in 3+ nodes without their own node. Report as candidates, **do not create**.
@@ -153,9 +241,47 @@ When `/{{COMMAND_NAME}} lint` is invoked:
    - **Invalid frontmatter**: missing fields or values outside the enum.
    - **Out-of-sync index**: a node in `sessions/` without an entry in `INDEX.md`, or vice versa.
    - **Misused markdown links**: links to wiki nodes using `[text](path)` instead of `[[slug]]`.
+
+   **Plannings:**
+   - **Stale plannings**: `status: in-progress` with no entry in `updated_by` in the last 30 days — flag as potentially abandoned.
+   - **Completed plannings**: all tasks checked but `status` is not `completed` — suggest updating status.
+   - **Broken planning refs**: `created_by` or `updated_by` slugs that do not resolve to any file in `sessions/`.
+   - **Out-of-sync index**: a node in `plannings/` without an entry in `INDEX.md`, or vice versa.
+   - **Orphan plannings**: planning with no session in `updated_by` and `created_by` is null — never linked to any session.
+
 3. Return a markdown report structured by category with an actionable suggestion per item.
 4. **DO NOT modify files.** Only append a short entry to `LOG.md` with counts.
 5. Append to `{{WIKI_DIR}}/LOG.md`: `## [date] lint | report` with count per category.
+
+---
+
+## Plan rules
+
+When `/{{COMMAND_NAME}} plan <slug>` is invoked:
+
+**If the planning node already exists** (`{{WIKI_DIR}}/plannings/<slug>.md`):
+1. Read the planning node in full.
+2. Show the user: title, status, progress, open tasks, and last session in `updated_by`.
+3. Ask: "What do you want to update? (tasks / objective / context / status / other)"
+4. Apply the requested changes in-place.
+5. Append to `{{WIKI_DIR}}/LOG.md`: `## [YYYY-MM-DD HH:MM] update | <slug>`
+
+**If the planning node does NOT exist** → CREATE:
+1. Ask the user (can ask all at once):
+   - "What is the objective of this plan?"
+   - "Which area does it belong to? ({{AREA_ENUM}})"
+   - "List the initial tasks (you can refine them later)."
+2. Generate the planning node with:
+   - `status: draft`
+   - `progress: 0`
+   - `created_by: null` (will be set by the next ingest that references this plan)
+   - `updated_by: []`
+3. Write the full body with all required sections. Populate `## Objective`, `## Context`, and `## Tasks` from the user's answers. Leave `## Progress` and `## Decisions` empty with *(none yet)*.
+4. Update `{{WIKI_DIR}}/INDEX.md`: insert `[[slug]] — one-liner` under `## Plannings > <area>`. If the area section does not exist, create it in alphabetical order.
+5. Append to `{{WIKI_DIR}}/LOG.md`: `## [YYYY-MM-DD HH:MM] plan | <slug>`
+6. Report to the user: path created, reminder to run `ingest` at the end of sessions that advance this plan.
+
+**If no slug is provided**: respond "Provide a slug for the plan (e.g., `/{{COMMAND_NAME}} plan frontend-architecture`)." and abort.
 
 ---
 
