@@ -1,77 +1,77 @@
-# {{WIKI_DIR}} — Schema operativo
+# {{WIKI_DIR}} — Operational Schema
 
-Este directorio es el "brain" del proyecto: un wiki markdown interconectado
-mantenido por Claude. Si estás leyendo este archivo, probablemente fuiste invocado
-por el comando `/{{COMMAND_NAME}}`. Seguí estas reglas al pie de la letra.
-
----
-
-## Qué es cada archivo
-
-- `index.md` — catálogo denso de nodos. Punto de entrada para cualquier query o ingest.
-- `log.md` — bitácora append-only de **operaciones sobre el wiki** (ingest, lint, rename, merge). No es el log de trabajo — eso vive en los nodos.
-- `sources.md` — registro de fuentes externas. Directorio, no cache de contenido.
-- `sessions/` — nodos de sesión. Planos, un archivo por sesión.
-- `CLAUDE.md` — este archivo.
+This directory is the project's "brain": an interconnected markdown wiki
+maintained by Claude. If you are reading this file, you were probably invoked
+by the `/{{COMMAND_NAME}}` command. Follow these rules precisely.
 
 ---
 
-## Tipos de nodo
+## What each file is
 
-Al arranque sólo existe **session**. Conceptos, ADRs, entidades y personas emergerán
-orgánicamente vía `lint` cuando el patrón se repita en 3+ nodos.
-
-**NO** crear nodos de otros tipos preventivamente.
+- `INDEX.md` — dense node catalog. Entry point for any query or ingest.
+- `LOG.md` — append-only log of **operations on the wiki** (ingest, lint, rename, merge). This is not the work log — that lives in the nodes.
+- `SOURCES.md` — external sources registry. A directory, not a content cache.
+- `sessions/` — session nodes. Flat, one file per session.
+- `CLAUDE.md` — this file.
 
 ---
 
-## Frontmatter obligatorio en cada nodo
+## Node types
+
+At startup, only **session** exists. Concepts, ADRs, entities, and persons will emerge
+organically via `lint` when a pattern repeats in 3+ nodes.
+
+**DO NOT** create nodes of other types preemptively.
+
+---
+
+## Required frontmatter in each node
 
 ```yaml
 ---
 type: session
 area: <{{AREA_ENUM}}>
 date: YYYY-MM-DD
-slug: <slug-del-nombre-de-archivo-sin-fecha-ni-.md>
-title: "<título humano>"
-tags: [<libres, kebab-case>]
+slug: <slug-of-the-filename-without-date-or-.md>
+title: "<human-readable title>"
+tags: [<free, kebab-case>]
 status: active                  # active | superseded | archived
 related:
-  - <slug-sin-.md>
+  - <slug-without-.md>
 sources:
-  - {{SOURCE_PREFIX}}:<id-o-path>
-superseded_by: null             # slug del nodo que reemplaza a éste, o null
+  - {{SOURCE_PREFIX}}:<id-or-path>
+superseded_by: null             # slug of the node that replaces this one, or null
 ---
 ```
 
-Reglas:
-- `slug`: igual al nombre de archivo sin fecha ni `.md`. Kebab-case, ≤6 palabras. Describe el resultado, no el proceso.
-- `area`: ruta relativa inequívoca. Single-value. Si una sesión toca dos áreas, crear dos nodos cross-linked, o uno con área primaria y cross-ref.
-- `related`: slugs sin `.md`. Máx. 5. El LLM los detecta por tags solapados, misma área, proximidad cronológica.
-- `sources`: prefijos válidos: `{{SOURCE_PREFIX}}:<id>`, `repo:<path-relativo>`, `url:<url-completa>`.
+Rules:
+- `slug`: same as the filename without date or `.md`. Kebab-case, ≤6 words. Describes the result, not the process.
+- `area`: unambiguous relative value. Single-value. If a session touches two areas, create two cross-linked nodes, or one with a primary area and a cross-ref.
+- `related`: slugs without `.md`. Max 5. The LLM detects them by overlapping tags, same area, or chronological proximity.
+- `sources`: valid prefixes: `{{SOURCE_PREFIX}}:<id>`, `repo:<relative-path>`, `url:<full-url>`.
 
 ---
 
-## Convención de enlaces — Wikilinks Foam
+## Link convention — Foam Wikilinks
 
-**Regla crítica**: todos los enlaces internos del wiki usan `[[slug]]`, compatible con Foam/Markdown Notes en VSCode.
+**Critical rule**: all internal wiki links use `[[slug]]`, compatible with Foam/Markdown Notes in VSCode.
 
-- **Sintaxis**: `[[slug]]` — solo el nombre del archivo sin `.md`, sin path, sin alias. Ej: `[[2026-04-05-nombre-del-nodo]]`.
-- **Resolución**: Foam resuelve el slug al archivo por nombre. Los slugs son únicos por construcción (incluyen fecha).
-- **Dónde se usan**:
-  - `index.md`: cada entry del catálogo
-  - Nodos: sección `## {{SECTION_CROSS_REFS}}`
-  - Nodos: sección `## {{SECTION_SOURCES}}` cuando apunta a otro nodo del wiki o a un anchor interno (`[[sources#id]]`)
-- **Dónde NO se usan**:
-  - URLs externas: usar markdown link `[texto](url)`
-  - Archivos fuera del vault `{{WIKI_DIR}}/`: backticks literales
-  - "Origen histórico" en {{SECTION_SOURCES}}: texto plano, **no enlazar**
+- **Syntax**: `[[slug]]` — only the filename without `.md`, without path, without alias. E.g.: `[[2026-04-05-node-name]]`.
+- **Resolution**: Foam resolves the slug to the file by name. Slugs are unique by construction (they include a date).
+- **Where they are used**:
+  - `INDEX.md`: each catalog entry
+  - Nodes: `## {{SECTION_CROSS_REFS}}` section
+  - Nodes: `## {{SECTION_SOURCES}}` section when pointing to another wiki node or internal anchor (`[[sources#id]]`)
+- **Where they are NOT used**:
+  - External URLs: use markdown link `[text](url)`
+  - Files outside the vault `{{WIKI_DIR}}/`: literal backticks
+  - "Historical origin" in {{SECTION_SOURCES}}: plain text, **do not link**
 
 ---
 
-## Cuerpo obligatorio de cada nodo session
+## Required body of each session node
 
-Secciones en este orden exacto:
+Sections in this exact order:
 
 ```
 # <{{SECTION_TITLE}}>
@@ -85,77 +85,77 @@ Secciones en este orden exacto:
 ## {{SECTION_PENDING}}
 
 ## {{SECTION_CROSS_REFS}}
-- [[slug]] — razón en una línea
+- [[slug]] — reason in one line
 
 ## {{SECTION_SOURCES}}
 - [[sources#id]]
-- Origen histórico (no modificar): `ruta/original.md`
+- Historical origin (do not modify): `original/path.md`
 ```
 
-Reglas del cuerpo:
-- `{{SECTION_CROSS_REFS}}`: **sólo wikilinks** a otros nodos del wiki. Cada bullet con razón en una línea. Sin razón → candidato orphan-link en lint.
-- `{{SECTION_SOURCES}}`: referencias externas. Para sources externos: `[[sources#id]]`. Para URLs web: `[texto](url)`. Para archivos del repo fuera del vault: texto plano o backticks.
+Body rules:
+- `{{SECTION_CROSS_REFS}}`: **only wikilinks** to other wiki nodes. Each bullet with a reason in one line. No reason → orphan-link candidate in lint.
+- `{{SECTION_SOURCES}}`: external references. For external sources: `[[sources#id]]`. For web URLs: `[text](url)`. For repo files outside the vault: plain text or backticks.
 
 ---
 
-## Reglas de ingest
+## Ingest rules
 
-Cuando se invoca `/{{COMMAND_NAME}} ingest`:
+When `/{{COMMAND_NAME}} ingest` is invoked:
 
-1. Leer `{{WIKI_DIR}}/CLAUDE.md` y `{{WIKI_DIR}}/index.md`.
-2. Revisar la conversación actual. Identificar:
-   - Área(s) tocadas.
-   - Verbo de acción principal (definimos, migramos, decidimos, implementamos, debuggeamos).
-   - Output concreto: archivos creados/modificados, URLs.
-   - Decisiones con rationale.
-   - Pendientes explícitos.
-3. Generar el slug: `YYYY-MM-DD-<kebab-case>`. Fecha = hoy. El slug describe el RESULTADO (no el proceso), máx. 6 palabras.
-4. ¿Existe nodo del mismo día con tema muy similar?
-   - **Sí** → UPDATE: leerlo y appendear a {{SECTION_DECISIONS}}/{{SECTION_OUTPUT}}/{{SECTION_PENDING}} bajo `### Actualización [HH:MM]`. No reescribir lo anterior.
+1. Read `{{WIKI_DIR}}/CLAUDE.md` and `{{WIKI_DIR}}/INDEX.md`.
+2. Review the current conversation. Identify:
+   - Area(s) covered.
+   - Main action verb (defined, migrated, decided, implemented, debugged).
+   - Concrete output: files created/modified, URLs.
+   - Decisions with rationale.
+   - Explicit pending items.
+3. Generate the slug: `YYYY-MM-DD-<kebab-case>`. Date = today. The slug describes the RESULT (not the process), max 6 words.
+4. Does a node from the same day with a very similar topic already exist?
+   - **Yes** → UPDATE: read it and append to {{SECTION_DECISIONS}}/{{SECTION_OUTPUT}}/{{SECTION_PENDING}} under `### Update [HH:MM]`. Do not rewrite what was there before.
    - **No** → CREATE.
-5. CREATE: generar frontmatter completo. `related` busca en `index.md` nodos con tags solapados, misma área o proximidad cronológica. Máx. 5.
-6. Escribir cuerpo con las 6 secciones obligatorias. Cross-refs con `[[slug]]` y razón en una línea.
-7. **Bidireccionalidad obligatoria**: para cada nodo en `related`, abrirlo y agregar bullet recíproco en su `## {{SECTION_CROSS_REFS}}` con `[[este-nodo]] — razón`. Sin excepciones.
-8. Actualizar `{{WIKI_DIR}}/index.md`: insertar bullet `[[slug]] — one-liner` al tope de la sección del área. Si el área no existe, crearla en orden alfabético.
-9. Append a `{{WIKI_DIR}}/log.md`: `## [YYYY-MM-DD HH:MM] ingest | <slug>` con metadata de cross-refs.
-10. Reportar al usuario: path del nodo, cross-refs agregadas, decisiones ambiguas.
+5. CREATE: generate complete frontmatter. `related` searches in `INDEX.md` for nodes with overlapping tags, same area, or chronological proximity. Max 5.
+6. Write the body with the 6 required sections. Cross-refs with `[[slug]]` and a reason in one line.
+7. **Mandatory bidirectionality**: for each node in `related`, open it and add a reciprocal bullet in its `## {{SECTION_CROSS_REFS}}` section: `[[this-node]] — reason`. No exceptions.
+8. Update `{{WIKI_DIR}}/INDEX.md`: insert the bullet `[[slug]] — one-liner` at the top of the area section. If the area does not exist, create it in alphabetical order.
+9. Append to `{{WIKI_DIR}}/LOG.md`: `## [YYYY-MM-DD HH:MM] ingest | <slug>` with cross-ref metadata.
+10. Report to the user: node path, cross-refs added, ambiguous decisions.
 
 {{LEGACY_NOTE}}
 
 ---
 
-## Reglas de query
+## Query rules
 
-Cuando se invoca `/{{COMMAND_NAME}} query <pregunta>`:
+When `/{{COMMAND_NAME}} query <question>` is invoked:
 
-1. Leer `{{WIKI_DIR}}/CLAUDE.md` y `{{WIKI_DIR}}/index.md` completos.
-2. De los one-liners del índice, seleccionar 1-5 nodos candidatos.
-3. Leer esos nodos completos.
+1. Read `{{WIKI_DIR}}/CLAUDE.md` and `{{WIKI_DIR}}/INDEX.md` in full.
+2. From the index one-liners, select 1-5 candidate nodes.
+3. Read those nodes in full.
 4. {{BACKEND_QUERY_RULE}}
-5. Sintetizar respuesta en 2-5 párrafos con citations usando wikilinks: `[[slug-del-nodo]]`. **NO usar markdown links** para nodos del wiki.
-6. Si detectás un gap (cross-ref obvio faltante, concepto en 3+ nodos sin nodo propio), NO arreglarlo — reportarlo al final como "Sugerencia para `/{{COMMAND_NAME}} lint`".
-7. Si no hay info suficiente, decirlo explícitamente. **No inventar ni extrapolar** más allá de lo que dicen los nodos.
+5. Synthesize the answer in 2-5 paragraphs with citations using wikilinks: `[[node-slug]]`. **DO NOT use markdown links** for wiki nodes.
+6. If you detect a gap (an obvious missing cross-ref, a concept in 3+ nodes without its own node), do NOT fix it — report it at the end as "Suggestion for `/{{COMMAND_NAME}} lint`".
+7. If there is not enough information, say so explicitly. **Do not invent or extrapolate** beyond what the nodes say.
 
 ---
 
-## Reglas de lint
+## Lint rules
 
-Cuando se invoca `/{{COMMAND_NAME}} lint`:
+When `/{{COMMAND_NAME}} lint` is invoked:
 
-1. Leer `{{WIKI_DIR}}/CLAUDE.md`, `{{WIKI_DIR}}/index.md` y **todos** los archivos en `{{WIKI_DIR}}/sessions/`.
-2. Revisar estas categorías:
-   - **Orphan nodes**: nodos sin inbound wikilinks desde otros nodos ni desde `index.md`.
-   - **Broken wikilinks**: `[[slug]]` que no resuelve a ningún archivo en `sessions/`.
-   - **Stale claims**: fechas de pendientes que ya pasaron.
-   - **Missing cross-refs**: pares con alto solape de tags o misma entidad sin wikilink entre sí.
-   - **Conceptos emergentes**: términos que aparecen en 3+ nodos sin nodo propio. Reportar como candidatos, **no crear**.
-   - **Contradicciones**: decisiones opuestas sin `superseded_by`.
-   - **Frontmatter inválido**: campos faltantes o valores fuera de enum.
-   - **Índice desincronizado**: nodo en `sessions/` sin entry en `index.md`, o viceversa.
-   - **Markdown links mal usados**: enlaces a nodos del wiki que usan `[text](path)` en lugar de `[[slug]]`.
-3. Devolver reporte markdown estructurado por categoría con sugerencia accionable por ítem.
-4. **NO modificar archivos.** Solo append de una entrada corta a `log.md` con conteos.
-5. Append a `{{WIKI_DIR}}/log.md`: `## [fecha] lint | report` con conteo por categoría.
+1. Read `{{WIKI_DIR}}/CLAUDE.md`, `{{WIKI_DIR}}/INDEX.md`, and **all** files in `{{WIKI_DIR}}/sessions/`.
+2. Check these categories:
+   - **Orphan nodes**: nodes with no inbound wikilinks from other nodes or from `INDEX.md`.
+   - **Broken wikilinks**: `[[slug]]` that does not resolve to any file in `sessions/`.
+   - **Stale claims**: pending item dates that have already passed.
+   - **Missing cross-refs**: pairs with high tag overlap or the same entity without a wikilink between them.
+   - **Emerging concepts**: terms that appear in 3+ nodes without their own node. Report as candidates, **do not create**.
+   - **Contradictions**: opposing decisions without `superseded_by`.
+   - **Invalid frontmatter**: missing fields or values outside the enum.
+   - **Out-of-sync index**: a node in `sessions/` without an entry in `INDEX.md`, or vice versa.
+   - **Misused markdown links**: links to wiki nodes using `[text](path)` instead of `[[slug]]`.
+3. Return a markdown report structured by category with an actionable suggestion per item.
+4. **DO NOT modify files.** Only append a short entry to `LOG.md` with counts.
+5. Append to `{{WIKI_DIR}}/LOG.md`: `## [date] lint | report` with count per category.
 
 ---
 
@@ -165,6 +165,6 @@ Cuando se invoca `/{{COMMAND_NAME}} lint`:
 
 ---
 
-## Idioma
+## Language
 
 {{LANGUAGE_RULE}}

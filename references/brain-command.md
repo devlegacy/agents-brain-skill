@@ -1,117 +1,117 @@
 ---
-description: Opera el wiki interno de {{PROJECT_NAME}}. Subcomandos: ingest (default), query, lint.
-argument-hint: "[ingest | query <pregunta> | lint]"
+description: Operates the internal wiki of {{PROJECT_NAME}}. Subcommands: ingest (default), query, lint.
+argument-hint: "[ingest | query <question> | lint]"
 ---
 
-Sos el operador del wiki de {{PROJECT_NAME}}. El wiki es un knowledge base markdown vivo
-en `{{WIKI_DIR}}/`. **Antes de hacer nada, leé `{{WIKI_DIR}}/CLAUDE.md` completo** — ese archivo
-es tu manual operativo con todas las reglas de frontmatter, wikilinks, y operaciones.
-
----
-
-## Detectar sub-operación
-
-Parseá `$ARGUMENTS`:
-- Vacío o `ingest` → modo **INGEST**.
-- Empieza con `query` → modo **QUERY** con el resto como pregunta.
-- `lint` → modo **LINT**.
-- Cualquier otra cosa → pedir aclaración al usuario y abortar.
+You are the wiki operator of {{PROJECT_NAME}}. The wiki is a live markdown knowledge base
+in `{{WIKI_DIR}}/`. **Before doing anything, read `{{WIKI_DIR}}/CLAUDE.md` in full** — that file
+is your operational manual with all the frontmatter, wikilink, and operation rules.
 
 ---
 
-## Modo INGEST
+## Detect sub-operation
 
-Objetivo: crear (o actualizar) un nodo de sesión en `{{WIKI_DIR}}/sessions/` que capture
-lo que pasó en ESTA conversación.
+Parse `$ARGUMENTS`:
+- Empty or `ingest` → **INGEST** mode.
+- Starts with `query` → **QUERY** mode with the rest as the question.
+- `lint` → **LINT** mode.
+- Anything else → ask the user for clarification and abort.
 
-1. Leé `{{WIKI_DIR}}/CLAUDE.md` y `{{WIKI_DIR}}/index.md`.
-2. Revisá la conversación actual (todos los turnos previos). Identificá:
-   - Área(s) tocadas.
-   - Verbo de acción principal (definimos, migramos, decidimos, implementamos, debuggeamos).
-   - Output concreto: archivos creados/modificados, URLs.
-   - Decisiones importantes con rationale.
-   - Pendientes explícitos.
-3. Generá el slug: `YYYY-MM-DD-<kebab-case-corto>`. Fecha = hoy. El slug describe el
-   RESULTADO (no el proceso), máx. 6 palabras.
-4. ¿Existe ya un nodo con esa fecha y tema muy similar?
-   - **Sí** → UPDATE: leelo y appendeá a {{SECTION_DECISIONS}}/{{SECTION_OUTPUT}}/{{SECTION_PENDING}} bajo un sub-bloque
-     `### Actualización [HH:MM]`. No reescribas lo anterior.
+---
+
+## INGEST mode
+
+Objective: create (or update) a session node in `{{WIKI_DIR}}/sessions/` that captures
+what happened in THIS conversation.
+
+1. Read `{{WIKI_DIR}}/CLAUDE.md` and `{{WIKI_DIR}}/INDEX.md`.
+2. Review the current conversation (all previous turns). Identify:
+   - Area(s) covered.
+   - Main action verb (defined, migrated, decided, implemented, debugged).
+   - Concrete output: files created/modified, URLs.
+   - Important decisions with rationale.
+   - Explicit pending items.
+3. Generate the slug: `YYYY-MM-DD-<short-kebab-case>`. Date = today. The slug describes the
+   RESULT (not the process), max 6 words.
+4. Does a node with that date and a very similar topic already exist?
+   - **Yes** → UPDATE: read it and append to {{SECTION_DECISIONS}}/{{SECTION_OUTPUT}}/{{SECTION_PENDING}} under a sub-block
+     `### Update [HH:MM]`. Do not rewrite what was there before.
    - **No** → CREATE.
-5. CREATE: generá frontmatter completo siguiendo las reglas de `{{WIKI_DIR}}/CLAUDE.md`.
-   - `related`: buscá en `{{WIKI_DIR}}/index.md` nodos con tags solapados, misma área o
-     proximidad cronológica. Máx. 5.
-   - `sources`: IDs de fuentes consultados (de `{{WIKI_DIR}}/sources.md`), paths del repo tocados
-     con prefijo `repo:`, URLs externas con prefijo `url:`.
-6. Escribí el cuerpo con las 6 secciones obligatorias. En {{SECTION_CROSS_REFS}} usá `[[slug]]` con razón en una línea.
-7. **Bidireccionalidad obligatoria**: para cada nodo en `related`, abrilo y agregá un
-   bullet recíproco en su sección `## {{SECTION_CROSS_REFS}}`: `[[este-nodo]] — razón`. Sin excepciones.
-8. Actualizá `{{WIKI_DIR}}/index.md`: insertá el bullet `[[slug]] — one-liner` al tope de la
-   sección del área correspondiente. Si el área no existe, creala en orden alfabético.
-9. Append a `{{WIKI_DIR}}/log.md`:
+5. CREATE: generate complete frontmatter following the rules in `{{WIKI_DIR}}/CLAUDE.md`.
+   - `related`: search in `{{WIKI_DIR}}/INDEX.md` for nodes with overlapping tags, same area, or
+     chronological proximity. Max 5.
+   - `sources`: IDs of consulted sources (from `{{WIKI_DIR}}/SOURCES.md`), repo paths touched
+     with the `repo:` prefix, external URLs with the `url:` prefix.
+6. Write the body with the 6 required sections. In {{SECTION_CROSS_REFS}} use `[[slug]]` with a reason in one line.
+7. **Mandatory bidirectionality**: for each node in `related`, open it and add a
+   reciprocal bullet in its `## {{SECTION_CROSS_REFS}}` section: `[[this-node]] — reason`. No exceptions.
+8. Update `{{WIKI_DIR}}/INDEX.md`: insert the bullet `[[slug]] — one-liner` at the top of
+   the corresponding area section. If the area does not exist, create it in alphabetical order.
+9. Append to `{{WIKI_DIR}}/LOG.md`:
    ```
    ## [YYYY-MM-DD HH:MM] ingest | <slug>
-   - Área: <area>
-   - Cross-refs: <lista de slugs relacionados o "ninguna">
+   - Area: <area>
+   - Cross-refs: <list of related slugs or "none">
    ```
-10. Reportá al usuario: path del nodo creado/actualizado, cross-refs agregadas, y si
-    hubo alguna decisión ambigua.
+10. Report to the user: path of the created/updated node, cross-refs added, and if
+    there was any ambiguous decision.
 
 {{LEGACY_INGEST_NOTE}}
 
 ---
 
-## Modo QUERY
+## QUERY mode
 
-Objetivo: responder una pregunta usando el wiki como base, con citations verificables.
+Objective: answer a question using the wiki as a base, with verifiable citations.
 
-1. Leé `{{WIKI_DIR}}/CLAUDE.md` y `{{WIKI_DIR}}/index.md` completos.
-2. De los one-liners del índice, seleccioná 1-5 nodos candidatos para la pregunta.
-   Si ninguno parece relevante, decilo y sugerí ampliar la búsqueda.
-3. Leé esos nodos completos.
+1. Read `{{WIKI_DIR}}/CLAUDE.md` and `{{WIKI_DIR}}/INDEX.md` in full.
+2. From the index one-liners, select 1-5 candidate nodes for the question.
+   If none seem relevant, say so and suggest broadening the search.
+3. Read those nodes in full.
 4. {{BACKEND_QUERY_STEP}}
-5. Sintetizá respuesta en 2-5 párrafos. Citations usando wikilinks:
-   `[[slug-del-nodo]]`.
-   **NO uses markdown links** `[texto](ruta)` para nodos del wiki.
-6. Si detectás un gap (cross-ref obvio faltante, concepto en 3+ nodos sin nodo propio),
-   NO lo arreglés — reportalo al final como "Sugerencia para `/{{COMMAND_NAME}} lint`".
-7. Si no hay info suficiente en el wiki, decilo explícitamente. **No inventes** ni
-   extrapoles más allá de lo que dicen los nodos.
+5. Synthesize the answer in 2-5 paragraphs. Citations using wikilinks:
+   `[[node-slug]]`.
+   **DO NOT use markdown links** `[text](path)` for wiki nodes.
+6. If you detect a gap (an obvious missing cross-ref, a concept in 3+ nodes without its own node),
+   do NOT fix it — report it at the end as "Suggestion for `/{{COMMAND_NAME}} lint`".
+7. If there is not enough information in the wiki, say so explicitly. **Do not invent** or
+   extrapolate beyond what the nodes say.
 
 ---
 
-## Modo LINT
+## LINT mode
 
-Objetivo: reportar el estado de salud del wiki **SIN modificar archivos**.
+Objective: report the health status of the wiki **WITHOUT modifying files**.
 
-1. Leé `{{WIKI_DIR}}/CLAUDE.md`, `{{WIKI_DIR}}/index.md` y **todos** los archivos en `{{WIKI_DIR}}/sessions/`.
-2. Revisá cada categoría según las reglas de lint de `{{WIKI_DIR}}/CLAUDE.md`.
-3. Devolvé un reporte markdown estructurado:
+1. Read `{{WIKI_DIR}}/CLAUDE.md`, `{{WIKI_DIR}}/INDEX.md`, and **all** files in `{{WIKI_DIR}}/sessions/`.
+2. Check each category according to the lint rules in `{{WIKI_DIR}}/CLAUDE.md`.
+3. Return a structured markdown report:
 
    ```markdown
    # Lint report — YYYY-MM-DD HH:MM
 
-   ## Resumen
-   - Nodos totales: N
-   - Issues críticos: N (broken wikilinks, frontmatter inválido, índice desincronizado)
-   - Issues medios: N (orphans, missing cross-refs)
-   - Oportunidades: N (conceptos emergentes, stale claims)
+   ## Summary
+   - Total nodes: N
+   - Critical issues: N (broken wikilinks, invalid frontmatter, out-of-sync index)
+   - Medium issues: N (orphans, missing cross-refs)
+   - Opportunities: N (emerging concepts, stale claims)
 
-   ## Críticos
+   ## Critical
    ### Broken wikilinks
-   - `[[slug-inexistente]]` en `2026-04-XX-nodo.md` → sugerir corrección
+   - `[[non-existent-slug]]` in `2026-04-XX-node.md` → suggest correction
 
-   ## Medios
+   ## Medium
    ### Orphan nodes
-   - `[[slug]]` — sin inbound links. Sugerencia: cross-ref desde [[nodo-relacionado]].
+   - `[[slug]]` — no inbound links. Suggestion: cross-ref from [[related-node]].
 
-   ## Oportunidades
-   ### Conceptos emergentes
-   - "término" aparece en 3 nodos. Candidato a `type: concept`.
+   ## Opportunities
+   ### Emerging concepts
+   - "term" appears in 3 nodes. Candidate for `type: concept`.
    ```
 
-4. **NO modificar archivos.**
-5. Append a `{{WIKI_DIR}}/log.md`:
+4. **DO NOT modify files.**
+5. Append to `{{WIKI_DIR}}/LOG.md`:
    ```
    ## [YYYY-MM-DD HH:MM] lint | report
-   - Críticos: N | Medios: N | Oportunidades: N
+   - Critical: N | Medium: N | Opportunities: N
    ```

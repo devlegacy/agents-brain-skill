@@ -1,116 +1,116 @@
-# Templates de sources.md por backend
+# SOURCES.md templates by backend
 
-Elegí el bloque correspondiente al backend seleccionado por el usuario.
-Reemplazá `{{WIKI_DIR}}` con el nombre del directorio del wiki.
+Select the block that corresponds to the backend chosen by the user.
+Replace `{{WIKI_DIR}}` with the name of the wiki directory.
 
 ---
 
 ## TEMPLATE A — Notion
 
 ```markdown
-# {{WIKI_DIR}} — Registro de fuentes externas
+# {{WIKI_DIR}} — External Sources Registry
 
-> IDs cortos para referenciar desde frontmatter (`sources:`) y cuerpos de nodos.
-> Notion es **source of truth**. Cuando un nodo cite una fuente de aquí, Claude DEBE
-> consultar Notion vía `mcp__notion__notion-fetch` antes de afirmar su contenido.
-> El campo "Resumen cache" sólo sirve para decidir si vale la pena hacer fetch — NO es autoritativo.
+> Short IDs for referencing from frontmatter (`sources:`) and node bodies.
+> Notion is the **source of truth**. When a node cites a source from here, Claude MUST
+> query Notion via `mcp__notion__notion-fetch` before asserting its content.
+> The "Cache summary" field is only used to decide whether it is worth fetching — it is NOT authoritative.
 
 ---
 
 ## Notion
 
-<!-- Agregar una entrada por cada página de Notion relevante al proyecto -->
-<!-- Formato: ID corto en kebab-case, título, URL completa, resumen corto -->
+<!-- Add one entry for each Notion page relevant to the project -->
+<!-- Format: short ID in kebab-case, title, full URL, short summary -->
 
-### ejemplo-pagina
-- **Título:** Nombre de la página
-- **URL:** https://www.notion.so/<id-de-la-pagina>
-- **Resumen cache:** Descripción breve del contenido (para decidir si hacer fetch).
-- **Regla:** Resolver contenido real vía MCP antes de cualquier afirmación.
-- **Última verificación:** YYYY-MM-DD
+### example-page
+- **Title:** Page name
+- **URL:** https://www.notion.so/<page-id>
+- **Cache summary:** Brief description of the content (to decide whether to fetch).
+- **Rule:** Resolve real content via MCP before making any assertion.
+- **Last verified:** YYYY-MM-DD
 
-<!-- Duplicar el bloque anterior para cada fuente Notion -->
+<!-- Duplicate the block above for each Notion source -->
 
 ---
 
-## Repo (archivos del proyecto que son referenciados como fuentes)
+## Repo (project files that are referenced as sources)
 
-<!-- Archivos importantes que NO son nodos del wiki pero se citan en sesiones -->
+<!-- Important files that are NOT wiki nodes but are cited in sessions -->
 
-### ejemplo-doc
-- **Path:** `ruta/relativa/al/archivo.md`
-- **Descripción:** Qué contiene este archivo.
+### example-doc
+- **Path:** `relative/path/to/file.md`
+- **Description:** What this file contains.
 ```
 
 ---
 
-## TEMPLATE B — Archivos locales
+## TEMPLATE B — Local files
 
 ```markdown
-# {{WIKI_DIR}} — Registro de fuentes externas
+# {{WIKI_DIR}} — External Sources Registry
 
-> Registro de archivos del repo que sirven como fuente de verdad.
-> Referenciar desde frontmatter con prefijo `repo:<path>`.
-> Para el contenido actual siempre leer el archivo directamente — este registro
-> es sólo un directorio de qué existe y dónde.
-
----
-
-## Archivos del repo
-
-<!-- Listar archivos importantes que son fuente de verdad para las sesiones -->
-<!-- Referenciar desde nodos con: sources: [repo:ruta/al/archivo.md] -->
-
-### ejemplo-doc
-- **Path:** `ruta/relativa/al/archivo.md`
-- **Descripción:** Qué contiene y para qué se usa.
-
-<!-- Agregar más entradas según sea necesario -->
+> Registry of repo files that serve as the source of truth.
+> Reference from frontmatter with the `repo:<path>` prefix.
+> For current content, always read the file directly — this registry
+> is only a directory of what exists and where.
 
 ---
 
-## URLs externas
+## Repo files
 
-<!-- Documentación, APIs, referencias externas que no son Notion -->
+<!-- List important files that are the source of truth for sessions -->
+<!-- Reference from nodes with: sources: [repo:path/to/file.md] -->
 
-### ejemplo-url
-- **URL:** https://ejemplo.com/docs
-- **Descripción:** Para qué se referencia.
+### example-doc
+- **Path:** `relative/path/to/file.md`
+- **Description:** What it contains and what it is used for.
+
+<!-- Add more entries as needed -->
+
+---
+
+## External URLs
+
+<!-- Documentation, APIs, external references that are not Notion -->
+
+### example-url
+- **URL:** https://example.com/docs
+- **Description:** What it is referenced for.
 ```
 
 ---
 
-## TEMPLATE C — Ninguno / standalone
+## TEMPLATE C — None / standalone
 
 ```markdown
-# {{WIKI_DIR}} — Registro de fuentes externas
+# {{WIKI_DIR}} — External Sources Registry
 
-> Este wiki opera sin fuentes externas configuradas.
-> Para referenciar archivos del proyecto, usar prefijo `repo:<path>` en el frontmatter.
-> Para URLs externas, usar prefijo `url:<url>` en el frontmatter.
-
----
-
-## Archivos del repo referenciados
-
-<!-- Agregar cuando una sesión dependa de un archivo clave del proyecto -->
+> This wiki operates without configured external sources.
+> To reference project files, use the `repo:<path>` prefix in the frontmatter.
+> For external URLs, use the `url:<url>` prefix in the frontmatter.
 
 ---
 
-## URLs externas
+## Referenced repo files
 
-<!-- Agregar cuando una sesión dependa de una URL externa -->
+<!-- Add when a session depends on a key project file -->
+
+---
+
+## External URLs
+
+<!-- Add when a session depends on an external URL -->
 ```
 
 ---
 
-## TEMPLATE D — Backend personalizado
+## TEMPLATE D — Custom backend
 
 ```markdown
-# {{WIKI_DIR}} — Registro de fuentes externas
+# {{WIKI_DIR}} — External Sources Registry
 
-> Registro de fuentes externas del proyecto.
-> Backend configurado: {{CUSTOM_BACKEND_NAME}}
+> External sources registry for the project.
+> Configured backend: {{CUSTOM_BACKEND_NAME}}
 >
 > {{CUSTOM_BACKEND_INSTRUCTIONS}}
 
@@ -118,17 +118,17 @@ Reemplazá `{{WIKI_DIR}}` con el nombre del directorio del wiki.
 
 ## {{CUSTOM_BACKEND_NAME}}
 
-<!-- Listar fuentes según la convención de tu herramienta -->
+<!-- List sources according to your tool's convention -->
 
-### ejemplo
+### example
 - **ID / Path / URL:** ...
-- **Descripción:** ...
+- **Description:** ...
 
 ---
 
-## Archivos del repo referenciados
+## Referenced repo files
 
-### ejemplo-doc
-- **Path:** `ruta/relativa/al/archivo.md`
-- **Descripción:** ...
+### example-doc
+- **Path:** `relative/path/to/file.md`
+- **Description:** ...
 ```
